@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centripetal Force Simulation</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: linear-gradient(to bottom, #4facfe, #00f2fe);
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            margin: 0;
+        }
+        canvas {
+            background: white;
+            border: 3px solid black;
+            border-radius: 10px;
+            margin-right: 20px;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.3);
+            width: 250px;
+        }
+        label {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 14px;
+            align-items: center;
+        }
+        input[type="number"], select {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+        }
+        button {
+            padding: 8px 15px;
+            font-size: 14px;
+            background: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #forceDisplay {
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .toggle-buttons {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        .toggle-buttons button {
+            flex: 1;
+            padding: 8px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas" width="400" height="400"></canvas>
+    <div class="controls">
+        <label>Mass: <input type="number" id="massInput" value="5"> <select id="massUnit"><option value="kg">kg</option><option value="g">g</option></select></label>
+        <label>Speed: <input type="number" id="speedInput" value="5"> <select id="speedUnit"><option value="m/s">m/s</option><option value="km/h">km/h</option></select></label>
+        <label>Radius: <input type="number" id="radiusInput" value="100"> <select id="radiusUnit"><option value="cm">cm</option><option value="m">m</option></select></label>
+        <button id="toggleBtn">Start</button>
+        <div class="toggle-buttons">
+            <button id="toggleVelocity">Velocity</button>
+            <button id="toggleAcceleration">Acceleration</button>
+        </div>
+        <p id="forceDisplay">Centripetal Force: 0 N</p>
+    </div>
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        
+        let mass = parseFloat(document.getElementById("massInput").value);
+        let speed = parseFloat(document.getElementById("speedInput").value);
+        let radius = parseFloat(document.getElementById("radiusInput").value);
+        let angle = 0;
+        let running = false;
+        let showVelocity = false;
+        let showAcceleration = false;
+        let isDragging = false;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        
+        // Function to convert units to SI units (kg, m/s, m)
+        function convertToSI() {
+            const massUnit = document.getElementById("massUnit").value;
+            const speedUnit = document.getElementById("speedUnit").value;
+            const radiusUnit = document.getElementById("radiusUnit").value;
+            
+            // Convert mass to kg
+            if (massUnit === "g") mass = mass / 1000;
+            
+            // Convert speed to m/s
+            if (speedUnit === "km/h") speed = speed * (1000 / 3600);
+            
+            // Convert radius to m
+            if (radiusUnit === "cm") radius = radius / 100;
+        }
+        
+        // Function to update values and convert units
+        function updateValues() {
+            mass = parseFloat(document.getElementById("massInput").value);
+            speed = parseFloat(document.getElementById("speedInput").value);
+            radius = parseFloat(document.getElementById("radiusInput").value);
+            convertToSI(); // Convert to SI units
+        }
+        
+        document.getElementById("massInput").addEventListener("input", updateValues);
+        document.getElementById("speedInput").addEventListener("input", updateValues);
+        document.getElementById("radiusInput").addEventListener("input", updateValues);
+        document.getElementById("massUnit").addEventListener("change", updateValues);
+        document.getElementById("speedUnit").addEventListener("change", updateValues);
+        document.getElementById("radiusUnit").addEventListener("change", updateValues);
+        
+        function drawWavyRope(x1, y1, x2, y2) {
+            ctx.beginPath();
+            let segments = 10;
+            for (let i = 0; i <= segments; i++) {
+                let t = i / segments;
+                let wave = Math.sin(i * Math.PI) * 5;
+                let px = x1 + (x2 - x1) * t + wave;
+                let py = y1 + (y2 - y1) * t;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        function drawArrow(x1, y1, x2, y2, color) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            // Draw arrowhead
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - 10 * Math.cos(angle - Math.PI / 6), y2 - 10 * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x2 - 10 * Math.cos(angle + Math.PI / 6), y2 - 10 * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+        
+        function update() {
+            if (!running) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+            
+            drawWavyRope(centerX, centerY, x, y);
+            
+            ctx.beginPath();
+            ctx.arc(x, y, mass * 2, 0, Math.PI * 2);
+            ctx.fillStyle = "blue";
+            ctx.fill();
+            ctx.stroke();
+            
+            if (showVelocity) {
+                drawArrow(x, y, x + 50 * Math.cos(angle + Math.PI / 2), y + 50 * Math.sin(angle + Math.PI / 2)), "red";
+            }
+            
+            if (showAcceleration) {
+                drawArrow(x, y, centerX, centerY, "green");
+            }
+            
+            const force = (mass * (speed * speed)) / radius;
+            document.getElementById("forceDisplay").innerText = `Centripetal Force: ${force.toFixed(2)} N`;
+            
+            angle += speed / 100;
+            requestAnimationFrame(update);
+        }
+        
+        document.getElementById("toggleBtn").addEventListener("click", () => {
+            running = !running;
+            document.getElementById("toggleBtn").innerText = running ? "Pause" : "Start";
+            if (running) update();
+        });
+        
+        document.getElementById("toggleVelocity").addEventListener("click", () => {
+            showVelocity = !showVelocity;
+            document.getElementById("toggleVelocity").style.backgroundColor = showVelocity ? "#28a745" : "#007BFF";
+        });
+        
+        document.getElementById("toggleAcceleration").addEventListener("click", () => {
+            showAcceleration = !showAcceleration;
+            document.getElementById("toggleAcceleration").style.backgroundColor = showAcceleration ? "#28a745" : "#007BFF";
+        });
+        
+        // Mouse interaction to hold the bob
+        canvas.addEventListener("mousedown", (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const x = centerX + radius * Math.cos(angle);
+            const y = centerY + radius * Math.sin(angle);
+            const dist = Math.sqrt((mouseX - x) ** 2 + (mouseY - y) ** 2);
+            if (dist <= mass * 2) {
+                isDragging = true;
+                running = false;
+                document.getElementById("toggleBtn").innerText = "Start";
+            }
+        });
+        
+        canvas.addEventListener("mousemove", (e) => {
+            if (isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const dx = mouseX - centerX;
+                const dy = mouseY - centerY;
+                radius = Math.sqrt(dx * dx + dy * dy);
+                angle = Math.atan2(dy, dx);
+                updateValues();
+            }
+        });
+        
+        canvas.addEventListener("mouseup", () => {
+            isDragging = false;
+        });
+    </script>
+</body>
+</html>
